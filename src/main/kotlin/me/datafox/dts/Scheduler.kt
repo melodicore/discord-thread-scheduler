@@ -11,6 +11,7 @@ import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel
 import net.dv8tion.jda.api.entities.channel.middleman.StandardGuildMessageChannel
 import net.dv8tion.jda.api.exceptions.ErrorResponseException
+import org.slf4j.LoggerFactory
 import kotlin.system.exitProcess
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
@@ -19,9 +20,13 @@ import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class)
 object Scheduler {
+    private val log = LoggerFactory.getLogger(Scheduler::class.java)
+
     fun launch(config: Config, jda: JDA) {
         jda.awaitReady()
-        runBlocking { config.channels.forEach { initChannel(jda, config.timezone, it.key, it.value) } }
+        runBlocking {
+            config.channels.forEach { initChannel(jda, config.timezone, it.key, it.value) }
+        }
     }
 
     fun CoroutineScope.initChannel(jda: JDA, timeZone: TimeZone, id: String, config: ChannelConfig) {
@@ -52,7 +57,7 @@ object Scheduler {
                             try {
                                 channel.retrieveMessageById(id).complete().unpin().complete()
                             } catch (e: ErrorResponseException) {
-                                System.err.println("dts: ${e.message}")
+                                log.warn("dts: ${e.message}")
                             }
                         }
                     }
@@ -114,12 +119,12 @@ object Scheduler {
     }
 
     fun channelNotFound(id: String): Nothing {
-        System.err.println("dts: channel not found ($id)")
+        log.error("dts: channel not found ($id)")
         exitProcess(10)
     }
 
     fun notMessageChannel(channel: GuildChannel): Nothing {
-        System.err.println("dts: channel is not a standard message channel (${channel.name}: ${channel.type})")
+        log.error("dts: channel is not a standard message channel (${channel.name}: ${channel.type})")
         exitProcess(11)
     }
 }

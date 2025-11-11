@@ -21,7 +21,7 @@ kotlin {
 }
 
 application {
-    mainClass = "me.datafox.dts.MainKt"
+    mainClass = "me.datafox.dts.Main"
 }
 
 graalvmNative {
@@ -41,9 +41,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.8.0")
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1")
-    testImplementation(kotlin("test"))
-}
-
-tasks.test {
-    useJUnitPlatform()
+    implementation("org.slf4j:slf4j-api:2.0.17")
+    implementation("org.apache.logging.log4j:log4j-api:2.25.2")
+    implementation("org.apache.logging.log4j:log4j-core:2.25.2")
+    implementation("org.apache.logging.log4j:log4j-slf4j2-impl:2.25.2")
 }
