@@ -7,15 +7,15 @@ import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.readString
 import kotlinx.io.writeString
+import me.datafox.dts.ExitCode.Companion.logAndExit
 import net.dv8tion.jda.api.JDA
-import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel
 import net.dv8tion.jda.api.entities.channel.middleman.StandardGuildMessageChannel
 import net.dv8tion.jda.api.exceptions.ErrorResponseException
 import org.slf4j.LoggerFactory
-import kotlin.system.exitProcess
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class)
@@ -24,53 +24,64 @@ object Scheduler {
 
     fun launch(config: Config, jda: JDA) {
         jda.awaitReady()
-        runBlocking {
-            config.channels.forEach { initChannel(jda, config.timezone, it.key, it.value) }
-        }
+        runBlocking { config.channels.forEach { initChannel(jda, config.timezone, it.key, it.value) } }
     }
 
     fun CoroutineScope.initChannel(jda: JDA, timeZone: TimeZone, id: String, config: ChannelConfig) {
-        val channel = jda.getGuildChannelById(id) ?: channelNotFound(id)
-        if (channel !is StandardGuildMessageChannel) notMessageChannel(channel)
+        val channel = jda.getGuildChannelById(id) ?: ExitCode.CHANNEL_NOT_FOUND.logAndExit(log, id)
+        if (channel !is StandardGuildMessageChannel)
+            ExitCode.NOT_MESSAGE_CHANNEL.logAndExit(log, "${channel.name}: ${channel.type}")
         config.threads.forEach { launch(Dispatchers.IO) { schedule(channel, timeZone, it.key, it.value) } }
     }
 
-    suspend fun schedule(channel: StandardGuildMessageChannel, timeZone: TimeZone, id: String, config: ThreadConfig) {
+    suspend fun schedule(
+        channel: StandardGuildMessageChannel,
+        timeZone: TimeZone,
+        threadId: String,
+        config: ThreadConfig,
+    ) {
         val delayFn =
             when (config.period) {
                 is DailyConfig -> dailyDelay(timeZone, config.period)
                 is WeeklyConfig -> weeklyDelay(timeZone, config.period)
                 is MonthlyConfig -> monthlyDelay(timeZone, config.period)
             }
+        log.info("dts: scheduled thread \"$threadId\"")
         while (true) {
-            val delay = delayFn(Clock.System.now().toLocalDateTime(timeZone))
+            val now = Clock.System.now()
+            val delay = delayFn(now.toLocalDateTime(timeZone))
+            val next = (now + delay.milliseconds).toLocalDateTime(timeZone)
+            log.info("dts: next thread \"$threadId\" creation at ${next.format(LocalDateTime.Formats.ISO)}")
             delay(delay)
             val title = parseTitle(timeZone, config.title)
+            log.info("dts: creating thread \"$threadId\" with title \"$title\"")
             val message = channel.sendMessage(title).complete()
+            log.info("dts: thread \"$threadId\" message sent")
             message.createThreadChannel(title).complete()
+            log.info("dts: thread \"$threadId\" created")
             if (config.pin.pin) {
-                val path = Path(System.getProperty("user.dir"), "$id.pin")
-                if (config.pin.unpin) {
-                    if (SystemFileSystem.exists(path)) {
-                        val id = SystemFileSystem.source(path).buffered().use { it.readString().trim() }
-                        if (!id.isBlank()) {
-                            try {
-                                channel.retrieveMessageById(id).complete().unpin().complete()
-                            } catch (e: ErrorResponseException) {
-                                log.warn("dts: ${e.message}")
-                            }
-                        }
+                val path = Path(System.getProperty("user.dir"), "$threadId.pin")
+                if (config.pin.unpin && SystemFileSystem.exists(path)) {
+                    val id = SystemFileSystem.source(path).buffered().use { it.readString().trim() }
+                    if (!id.isBlank()) log.info("dts: thread \"$threadId\" found previous pinned message $id")
+                    try {
+                        channel.retrieveMessageById(id).complete().unpin().complete()
+                        log.info("dts: thread \"$threadId\" previous message $id unpinned")
+                    } catch (e: ErrorResponseException) {
+                        log.warn("dts: ${e.message}")
                     }
                 }
+                log.info("dts: thread \"$threadId\" pinning message ${message.id}")
                 SystemFileSystem.sink(path).buffered().use { it.writeString(message.id) }
                 message.pin().complete()
+                log.info("dts: thread \"$threadId\" message ${message.id} pinned")
             }
             delay(2.hours)
         }
     }
 
     fun dailyDelay(timeZone: TimeZone, period: DailyConfig): (LocalDateTime) -> Long = {
-        val time = LocalDateTime(it.year, it.month, it.day, period.time.hour, period.time.minute, period.time.second, 0)
+        val time = LocalDateTime(it.year, it.month, it.day, period.time.hour, period.time.minute, period.time.second)
         var delay = time.toInstant(timeZone) - it.toInstant(timeZone)
         if (delay.isNegative()) delay += 1.days
         delay.inWholeMilliseconds
@@ -116,15 +127,5 @@ object Scheduler {
             title =
                 title.replace("%D".toRegex(), now.dayOfWeek.toString().lowercase().replaceFirstChar { it.uppercase() })
         return title
-    }
-
-    fun channelNotFound(id: String): Nothing {
-        log.error("dts: channel not found ($id)")
-        exitProcess(10)
-    }
-
-    fun notMessageChannel(channel: GuildChannel): Nothing {
-        log.error("dts: channel is not a standard message channel (${channel.name}: ${channel.type})")
-        exitProcess(11)
     }
 }

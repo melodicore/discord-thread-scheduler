@@ -11,42 +11,34 @@ import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.readString
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import me.datafox.dts.ExitCode.Companion.logAndExit
 import net.dv8tion.jda.api.JDABuilder
+import net.dv8tion.jda.api.exceptions.InvalidTokenException
 import org.slf4j.LoggerFactory
-import kotlin.system.exitProcess
 
 class Main {
     private val log = LoggerFactory.getLogger(Main::class.java)
 
     fun main(args: Array<String>) {
-        val parser =
-            ArgParser(
-                args,
-                helpFormatter =
-                    DefaultHelpFormatter(
-                        epilogue =
-                            "Discord bot token can also be set with the DISCORD_THREAD_SCHEDULER_TOKEN environment variable"
-                    ),
-            )
+        val parser = ArgParser(args, helpFormatter = DefaultHelpFormatter(epilogue = Strings.TOKEN_MESSAGE))
         val args =
             try {
                 parser.parseInto(::DtsArgs).also { parser.force() }
             } catch (e: SystemExitException) {
                 e.printAndExit("dts")
             }
-        if (args.token != null && args.tokenFile != null) {
-            log.error("dts: please do not set both TOKEN and TOKEN_FILE arguments together")
-            exitProcess(3)
-        }
-        val token: String? = args.token ?: readToken(args.tokenFile) ?: System.getenv("DISCORD_THREAD_SCHEDULER_TOKEN")
-        if (token == null) {
-            log.error(
-                "dts: Discord token must be specified with TOKEN or TOKEN_FILE argument, or DISCORD_THREAD_SCHEDULER_TOKEN environment variable"
-            )
-            exitProcess(4)
-        }
+        if (args.token != null && args.tokenFile != null) ExitCode.TOKEN_AND_TOKEN_FILE_SET.logAndExit(log)
+        val token: String? = args.token ?: readToken(args.tokenFile) ?: System.getenv(Strings.TOKEN_ENV_VAR)
+        if (token == null) ExitCode.NO_TOKEN_SET.logAndExit(log)
         val config = readConfig(args.configFile)
-        val jda = JDABuilder.createDefault(token).build()
+        val jda =
+            try {
+                JDABuilder.createDefault(token).build()
+            } catch (_: InvalidTokenException) {
+                ExitCode.INVALID_TOKEN.logAndExit(log)
+            } catch (e: Throwable) {
+                ExitCode.JDA_ERROR.logAndExit(log, e.message)
+            }
         Scheduler.launch(config, jda)
     }
 
@@ -59,13 +51,9 @@ class Main {
             try {
                 SystemFileSystem.source(path).buffered().use { it.readString().trim() }
             } catch (_: FileNotFoundException) {
-                log.error("dts: TOKEN_FILE was not found ($path)")
-                exitProcess(5)
+                ExitCode.TOKEN_FILE_NOT_FOUND.logAndExit(log, path.toString())
             }
-        if (token.isBlank()) {
-            log.error("dts: TOKEN_FILE was found but is empty ($path)")
-            exitProcess(6)
-        }
+        if (token.isBlank()) ExitCode.TOKEN_FILE_EMPTY.logAndExit(log, path.toString())
         return token
     }
 
@@ -77,15 +65,11 @@ class Main {
         return try {
             SystemFileSystem.source(path).buffered().use { json.decodeFromString(it.readString()) }
         } catch (_: FileNotFoundException) {
-            log.error("dts: CONFIG_FILE was not found ($path)")
-            exitProcess(7)
+            ExitCode.CONFIG_FILE_NOT_FOUND.logAndExit(log, path.toString())
         } catch (e: SerializationException) {
-            log.error("dts: CONFIG_FILE was found but could not be deserialized ($path)")
-            e.message?.let { log.error(it) }
-            exitProcess(8)
+            ExitCode.CONFIG_FILE_INVALID_FORMAT.logAndExit(log, e.message)
         } catch (_: IllegalArgumentException) {
-            log.error("dts: CONFIG_FILE was found but could not be deserialized ($path)")
-            exitProcess(9)
+            ExitCode.CONFIG_FILE_INVALID_TYPE.logAndExit(log, path.toString())
         }
     }
 }
