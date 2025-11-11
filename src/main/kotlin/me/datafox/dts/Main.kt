@@ -4,6 +4,7 @@ import com.xenomachina.argparser.ArgParser
 import com.xenomachina.argparser.DefaultHelpFormatter
 import com.xenomachina.argparser.SystemExitException
 import com.xenomachina.argparser.default
+import kotlin.system.exitProcess
 import kotlinx.io.buffered
 import kotlinx.io.files.FileNotFoundException
 import kotlinx.io.files.Path
@@ -20,13 +21,21 @@ class Main {
     private val log = LoggerFactory.getLogger(Main::class.java)
 
     fun main(args: Array<String>) {
-        val parser = ArgParser(args, helpFormatter = DefaultHelpFormatter(epilogue = Strings.TOKEN_MESSAGE))
+        val parser =
+            ArgParser(
+                args,
+                helpFormatter = DefaultHelpFormatter(prologue = Strings.VERSION, epilogue = Strings.TOKEN_MESSAGE),
+            )
         val args =
             try {
                 parser.parseInto(::DtsArgs).also { parser.force() }
             } catch (e: SystemExitException) {
                 e.printAndExit("dts")
             }
+        if (args.version) {
+            println(Strings.VERSION)
+            exitProcess(0)
+        }
         if (args.token != null && args.tokenFile != null) ExitCode.TOKEN_AND_TOKEN_FILE_SET.logAndExit(log)
         val token: String? = args.token ?: readToken(args.tokenFile) ?: System.getenv(Strings.TOKEN_ENV_VAR)
         if (token == null) ExitCode.NO_TOKEN_SET.logAndExit(log)
@@ -75,6 +84,8 @@ class Main {
 }
 
 internal class DtsArgs(parser: ArgParser) {
+    val version by parser.flagging("-v", "--version", help = "print version and exit")
+
     val token by parser.storing("-t", "--token", help = "Discord bot token").default(null)
 
     val tokenFile by parser.storing("-f", "--token-file", help = "file containing Discord bot token").default(null)
