@@ -5,11 +5,14 @@ ones. You can configure as many unique threads as you want.
 
 ## Usage
 
-1. Set the `DISCORD_THREAD_SCHEDULER_TOKEN` environment variable to your Discord bot token. Optionally, you can also use
-the `-t TOKEN` or `-f TOKEN_FILE` arguments.
-2. Create a config file. By default, the application searches for `config.json` in your current directory, but this may
-can be changed with the `-c CONFIG_FILE` argument.
-3. Run the application
+1. Create a Discord bot at https://discord.com/developers/applications
+2. Add the bot to your server(s). The bot requires `Send Messages`, `Create Public Threads` and `Pin Messages` 
+permissions to function properly (permission integer `2251834173425664`)
+3. Set the `DISCORD_THREAD_SCHEDULER_TOKEN` environment variable to your Discord bot token. Optionally, you can also use
+the `-t TOKEN` or `-f TOKEN_FILE` arguments
+4. Create a config file. By default, the application searches for `config.json` in your current directory, but this may
+can be changed with the `-c CONFIG_FILE` argument
+5. Run the application
 
 ## Configuration
 
