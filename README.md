@@ -72,14 +72,14 @@ Here is an example configuration file:
 - `threads`: Every key is an id for a schedule. This id is only used in a filename to store last pinned message's id for 
 unpinning
 - `title`: Title for the thread. This string supports some variables:
-  - `$yy`: Last two digits of the current year
-  - `$y`: The current year
-  - `$mm`: The current month, padded to two digits
-  - `$m`: The current month
-  - `$M`: The current month's name
-  - `$dd`: The current day, padded to two digits
-  - `$d`: The current day
-  - `$D`: The current day's name
+  - `%yy`: Last two digits of the current year
+  - `%y`: The current year
+  - `%mm`: The current month, padded to two digits
+  - `%m`: The current month
+  - `%M`: The current month's name
+  - `%dd`: The current day, padded to two digits
+  - `%d`: The current day
+  - `%D`: The current day's name
 - `pin`: Pinning data. May be omitted, default is no pinning. Unpin is ignored if pin is false
 - `period`: When and how often a new thread should be created. Supports three types:
   - `daily`: Creates a thread every day. Only takes in the time of day
