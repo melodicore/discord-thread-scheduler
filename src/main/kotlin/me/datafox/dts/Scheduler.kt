@@ -10,6 +10,7 @@ import kotlinx.io.writeString
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel
 import net.dv8tion.jda.api.entities.channel.middleman.StandardGuildMessageChannel
+import net.dv8tion.jda.api.exceptions.ErrorResponseException
 import kotlin.system.exitProcess
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
@@ -47,7 +48,13 @@ object Scheduler {
                 if (config.pin.unpin) {
                     if (SystemFileSystem.exists(path)) {
                         val id = SystemFileSystem.source(path).buffered().use { it.readString().trim() }
-                        if (!id.isBlank()) channel.retrieveMessageById(id).complete().unpin().complete()
+                        if (!id.isBlank()) {
+                            try {
+                                channel.retrieveMessageById(id).complete().unpin().complete()
+                            } catch (e: ErrorResponseException) {
+                                System.err.println("dts: ${e.message}")
+                            }
+                        }
                     }
                 }
                 SystemFileSystem.sink(path).buffered().use { it.writeString(message.id) }
