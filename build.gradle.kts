@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "me.datafox"
-version = "1.0-SNAPSHOT"
+version = "1.0.0"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_24
