@@ -1,5 +1,10 @@
 package me.datafox.dts
 
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.ExperimentalTime
 import kotlinx.coroutines.*
 import kotlinx.datetime.*
 import kotlinx.io.buffered
@@ -12,11 +17,6 @@ import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.channel.middleman.StandardGuildMessageChannel
 import net.dv8tion.jda.api.exceptions.ErrorResponseException
 import org.slf4j.LoggerFactory
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.days
-import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class)
 object Scheduler {
@@ -114,18 +114,21 @@ object Scheduler {
 
     fun parseTitle(timeZone: TimeZone, title: String): String {
         val now = Clock.System.now().toLocalDateTime(timeZone)
-        var title = title
-        if (title.contains("%yy")) title = title.replace("%yy".toRegex(), now.year.toString().takeLast(2))
-        if (title.contains("%y")) title = title.replace("%y".toRegex(), now.year.toString())
-        if (title.contains("%mm")) title = title.replace("%mm".toRegex(), now.month.number.toString().padStart(2, '0'))
-        if (title.contains("%m")) title = title.replace("%m".toRegex(), now.month.number.toString())
-        if (title.contains("%M"))
-            title = title.replace("%M".toRegex(), now.month.toString().lowercase().replaceFirstChar { it.uppercase() })
-        if (title.contains("%dd")) title = title.replace("%dd".toRegex(), now.day.toString().padStart(2, '0'))
-        if (title.contains("%d")) title = title.replace("%d".toRegex(), now.day.toString())
-        if (title.contains("%D"))
-            title =
-                title.replace("%D".toRegex(), now.dayOfWeek.toString().lowercase().replaceFirstChar { it.uppercase() })
         return title
+            .parse("%yy") { now.year.toString().takeLast(2) }
+            .parse("%y") { now.year }
+            .parse("%mm") { now.month.number.toString().padStart(2, '0') }
+            .parse("%m") { now.month.number }
+            .parse("%MM") { now.month.toString().substring(0, 3).capitalize() }
+            .parse("%M") { now.month.toString().capitalize() }
+            .parse("%dd") { now.day.toString().padStart(2, '0') }
+            .parse("%d") { now.day }
+            .parse("%DD") { now.dayOfWeek.toString().substring(0, 3).capitalize() }
+            .parse("%D") { now.dayOfWeek.toString().capitalize() }
     }
+
+    fun String.parse(code: String, replacement: () -> Any): String =
+        if (contains(code)) replace(code.toRegex(), replacement().toString()) else this
+
+    fun String.capitalize(): String = lowercase().replaceFirstChar { it.uppercase() }
 }

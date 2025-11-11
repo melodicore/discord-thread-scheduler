@@ -79,9 +79,11 @@ unpinning
   - `%y`: The current year
   - `%mm`: The current month, padded to two digits
   - `%m`: The current month
+  - `%MM`: First three letters of the current month's name
   - `%M`: The current month's name
   - `%dd`: The current day, padded to two digits
   - `%d`: The current day
+  - `%DD`: First three letters of the current day's name
   - `%D`: The current day's name
 - `pin`: Pinning data. May be omitted, default is no pinning. Unpin is ignored if pin is false
 - `period`: When and how often a new thread should be created. Supports three types:
