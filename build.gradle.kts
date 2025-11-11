@@ -25,6 +25,9 @@ application {
 }
 
 graalvmNative {
+    binaries.all {
+        buildArgs("-H:Preserve=package=net.dv8tion.jda.api.entities.*")
+    }
     binaries.named("main") {
         imageName = "dts"
     }
