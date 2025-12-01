@@ -88,13 +88,10 @@ object Scheduler {
     }
 
     fun weeklyDelay(timeZone: TimeZone, period: WeeklyConfig): (LocalDateTime) -> Long = {
-        var time = LocalDateTime(it.year, it.month, it.day, period.time.hour, period.time.minute, period.time.second)
-        if (time.dayOfWeek != period.day) {
-            var days = period.day.isoDayNumber - time.dayOfWeek.isoDayNumber
-            if (days < 0) days += 7
-            time = LocalDateTime(time.year, time.month, time.day + days, time.hour, time.minute, time.second)
-        }
-        var delay = time.toInstant(timeZone) - it.toInstant(timeZone)
+        val time = LocalDateTime(it.year, it.month, it.day, period.time.hour, period.time.minute, period.time.second)
+        var days = period.day.isoDayNumber - time.dayOfWeek.isoDayNumber
+        if (days < 0) days += 7
+        var delay = time.toInstant(timeZone) + days.days - it.toInstant(timeZone)
         if (delay.isNegative()) delay += 7.days
         delay.inWholeMilliseconds
     }
